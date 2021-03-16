@@ -11,8 +11,8 @@ advanced_ui(){
   echo -e "|                           |  Extensions:              | "
   echo -e "|  Firmware:                |  8) [Shell Command]       | "
   echo -e "|  3) [Build only]          |                           | "
-  echo -e "|  4) [Build + Flash]       |                           | "
-  echo -e "|  5) [Build + SD Flash]    |                           | "
+  echo -e "|  4) [Build + Flash]       |  Marlin:                  | "
+  echo -e "|  5) [Build + SD Flash]    |  9) [Flash Marlin FW]     | "
   echo -e "|  6) [Get MCU ID]          |                           | "
 quit_footer
 }
@@ -64,6 +64,15 @@ advanced_menu(){
         advanced_ui;;
       8)
         do_action "setup_gcode_shell_command" "advanced_ui";;
+      9)
+        clear && print_header
+        flash_routine_marlin
+        if [ $FLASH_FIRMWARE_MARLIN = "true" ]; then
+          status_msg "Please wait..." && sleep 1
+          select_mcu_id
+        fi
+        print_msg && clear_msg
+        advanced_ui;;
       Q|q)
         clear; main_menu; break;;
       *)

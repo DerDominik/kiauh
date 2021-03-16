@@ -41,6 +41,8 @@ KLIPPERSCREEN_ENV_DIR=${HOME}/.KlipperScreen-env
 #misc
 INI_FILE=${HOME}/.kiauh.ini
 BACKUP_DIR=${HOME}/kiauh-backups
+#marlin
+MARLIN_FILE=${HOME}/marlin/firmware.hex
 
 ### set github repos
 KLIPPER_REPO=https://github.com/KevinOConnor/klipper.git

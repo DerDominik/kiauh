@@ -334,6 +334,9 @@ select_mcu_id(){
             if [ "$FLASH_FW_SD" = "true" ]; then
               flash_mcu_sd
             fi
+            if [ "$FLASH_FIRMWARE_MARLIN" = "true" ]; then
+              flash_mcu_marlin
+            fi
             break;;
           N|n|No|no)
             echo -e "###### > No"
@@ -346,6 +349,37 @@ select_mcu_id(){
       break
     done
   fi
+}
+
+flash_routine_marlin(){
+  echo
+  top_border
+  echo -e "|        ${red}~~~~~~~~~~~ [ ATTENTION! ] ~~~~~~~~~~~~${default}        |"
+  hr
+  echo -e "| Flashing original Marlin Firmware file                |"
+  echo -e "| File must be located in: ~/marlin/firmware.hex        |"
+  bottom_border
+  while true; do
+    read -p "${cyan}###### Do you want to continue? (Y/n):${default} " yn
+    case "$yn" in
+      Y|y|Yes|yes|"")
+        echo -e "###### > Yes"
+        FLASH_FIRMWARE_MARLIN="true"
+        if [ -f "$MARLIN_FILE" ]; then
+          get_mcu_id
+        else 
+            echo "$MARLIN_FILE does not exist."
+        fi
+        break;;
+      N|n|No|no)
+        echo -e "###### > No"
+        FLASH_FIRMWARE_MARLIN="false"
+        break;;
+      *)
+        print_unkown_cmd
+        print_msg && clear_msg;;
+    esac
+  done
 }
 
 flash_mcu(){
@@ -426,6 +460,16 @@ flash_mcu_sd(){
   fi
 
   klipper_service "start"
+}
+
+  flash_mcu_marlin(){
+  klipper_service "stop"
+  if ! avrdude -p M2560 -c wiring -P ${mcu_list[$mcu_index]} -U flash:w:$MARLIN_FILE:i -v ; then
+    warn_msg "Flashing failed!"
+    warn_msg "Please read the console output above!"
+  else
+    ok_msg "Flashing successfull!"
+  fi
 }
 
 build_fw(){
