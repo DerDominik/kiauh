@@ -4,6 +4,13 @@
 
 ---
 
+## **📋 Fork of Kiauh's Script - Flash Marlin**
+Enhancement:\
+Possibility to flash Marlin Firmware with this script\
+Location of Marlin firmware file -> ${HOME}/marlin/firmware.hex
+
+---
+
 ## **📋 Please see the [Changelog](docs/changelog.md) for possible important information !**
 
 ---
