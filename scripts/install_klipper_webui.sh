@@ -7,6 +7,30 @@ check_moonraker(){
   fi
 }
 
+get_user_selection_mjpg-streamer(){
+  while true; do
+    unset INSTALL_MJPG
+    echo
+    top_border
+    echo -e "|  Install MJGP-Streamer for webcam support?            |"
+    bottom_border
+    read -p "${cyan}###### Install MJPG-Streamer? (Y/n):${default} " yn
+    case "$yn" in
+      Y|y|Yes|yes|"")
+        echo -e "###### > Yes"
+        INSTALL_MJPG="true"
+        break;;
+      N|n|No|no)
+        echo -e "###### > No"
+        INSTALL_MJPG="false"
+        break;;
+      *)
+        print_unkown_cmd
+        print_msg && clear_msg;;
+    esac
+  done
+}
+
 get_user_selection_kiauh_macros(){
   #ask user for webui default macros
   while true; do
@@ -67,6 +91,9 @@ install_webui(){
   ### check if another site already listens to port 80
   $1_port_check
 
+  ### ask user to install mjpg-streamer
+  get_user_selection_mjpg-streamer
+
   ### ask user to install the recommended webinterface macros
   get_user_selection_kiauh_macros "$IF_NAME2"
 
@@ -78,6 +105,13 @@ install_webui(){
 
   ### install mainsail/fluidd
   $1_setup
+
+  ### install mjpg-streamer
+  [ "$INSTALL_MJPG" = "true" ] && install_mjpg-streamer
+
+  ### confirm message
+  CONFIRM_MSG="$IF_NAME1 has been set up!"
+  print_msg && clear_msg
 }
 
 install_kiauh_macros(){
@@ -87,24 +121,26 @@ install_kiauh_macros(){
     ### create a backup of the config folder
     backup_klipper_config_dir
     ### handle multi printer.cfg
-    if ls $klipper_cfg_loc/printer_*  2>/dev/null 1>&2; then
+    if ls $klipper_cfg_loc/printer_* 2>/dev/null 1>&2; then
       for config in $(find $klipper_cfg_loc/printer_*/printer.cfg); do
         path=$(echo $config | rev | cut -d"/" -f2- | rev)
         if [ ! -f $path/kiauh_macros.cfg ]; then
           ### copy kiauh_macros.cfg to config location
+          status_msg "Creating macro config file ..."
           cp ${SRCDIR}/kiauh/resources/kiauh_macros.cfg $path
-          ok_msg "$path/kiauh_macros.cfg created!"
           ### write the include to the very first line of the printer.cfg
           sed -i "1 i [include kiauh_macros.cfg]" $path/printer.cfg
+          ok_msg "$path/kiauh_macros.cfg created!"
         fi
       done
     ### handle single printer.cfg
     elif [ -f $klipper_cfg_loc/printer.cfg ] && [ ! -f $klipper_cfg_loc/kiauh_macros.cfg ]; then
       ### copy kiauh_macros.cfg to config location
+      status_msg "Creating macro config file ..."
       cp ${SRCDIR}/kiauh/resources/kiauh_macros.cfg $klipper_cfg_loc
-      ok_msg "$klipper_cfg_loc/kiauh_macros.cfg created!"
       ### write the include to the very first line of the printer.cfg
       sed -i "1 i [include kiauh_macros.cfg]" $klipper_cfg_loc/printer.cfg
+      ok_msg "$klipper_cfg_loc/kiauh_macros.cfg created!"
     fi
     ### restart klipper service to parse the modified printer.cfg
     klipper_service "restart"
@@ -247,8 +283,6 @@ mainsail_setup(){
   if [ $(ls /etc/systemd/system/moonraker* | wc -l) -gt 1 ]; then
     enable_mainsail_remotemode
   fi
-
-  ok_msg "Mainsail installation complete!\n"
 }
 
 enable_mainsail_remotemode(){
@@ -272,6 +306,5 @@ fluidd_setup(){
 
   ### delete downloaded zip
   status_msg "Remove downloaded archive ..."
-  rm -rf *.zip && ok_msg "Done!" && ok_msg "Fluidd installation complete!"
-  echo
+  rm -rf *.zip && ok_msg "Done!"
 }
