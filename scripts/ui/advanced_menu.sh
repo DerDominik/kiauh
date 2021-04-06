@@ -69,7 +69,7 @@ advanced_menu(){
         flash_routine_marlin
         if [ $FLASH_FIRMWARE_MARLIN = "true" ]; then
           status_msg "Please wait..." && sleep 1
-          select_mcu_id
+          select_mcu_id_marlin
         fi
         print_msg && clear_msg
         advanced_ui;;

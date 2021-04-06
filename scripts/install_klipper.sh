@@ -334,6 +334,52 @@ select_mcu_id(){
             if [ "$FLASH_FW_SD" = "true" ]; then
               flash_mcu_sd
             fi
+            break;;
+          N|n|No|no)
+            echo -e "###### > No"
+            break;;
+          *)
+            print_unkown_cmd
+            print_msg && clear_msg;;
+        esac
+      done
+      break
+    done
+  fi
+}
+
+select_mcu_id_marlin(){
+  if [ ${#mcu_list[@]} -ge 1 ]; then
+    top_border
+    echo -e "|               ${red}!!! IMPORTANT WARNING !!!${default}               |"
+    hr
+    echo -e "| Make sure, that you select the correct ID for the MCU |"
+    echo -e "| you have build the firmware for in the previous step! |"
+    blank_line
+    echo -e "| This is especially important if you use different MCU |"
+    echo -e "| models which each require their own firmware!         |"
+    blank_line
+    echo -e "| ${red}ONLY flash a firmware created for the respective MCU!${default} |"
+    bottom_border
+
+    ### list all mcus
+    i=1
+    for mcu in ${mcu_list[@]}; do
+      echo -e "$i) ${cyan}$mcu${default}"
+      i=$(expr $i + 1)
+    done
+    while true; do
+      echo
+      read -p "${cyan}###### Please select the ID for flashing:${default} " selected_index
+      mcu_index=$(echo $((selected_index - 1)))
+      selected_mcu_id="${mcu_list[$mcu_index]}"
+      echo -e "\nYou have selected to flash:\n● MCU #$selected_index: $selected_mcu_id\n"
+      while true; do
+        read -p "${cyan}###### Do you want to continue? (Y/n):${default} " yn
+        case "$yn" in
+          Y|y|Yes|yes|"")
+            echo -e "###### > Yes"
+            status_msg "Flashing $selected_mcu_id ..."
             if [ "$FLASH_FIRMWARE_MARLIN" = "true" ]; then
               flash_mcu_marlin
             fi
@@ -462,7 +508,7 @@ flash_mcu_sd(){
   klipper_service "start"
 }
 
-  flash_mcu_marlin(){
+flash_mcu_marlin(){
   klipper_service "stop"
   if ! avrdude -p M2560 -c wiring -P ${mcu_list[$mcu_index]} -U flash:w:$MARLIN_FILE:i -v ; then
     warn_msg "Flashing failed!"
