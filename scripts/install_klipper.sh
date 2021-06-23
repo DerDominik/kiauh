@@ -11,6 +11,7 @@ klipper_setup_dialog(){
   SYSTEMD=$(ls /etc/systemd/system | grep -E "^klipper(\-[[:digit:]]+)?\.service$")
 
   if [ ! -z "$INITD" ] || [ ! -z "$SYSTEMD" ]; then
+    echo "${red}$INITD${default}" && echo "${red}$SYSTEMD${default}"
     ERROR_MSG="At least one Klipper service is already installed!\n Please remove Klipper first, before installing it again." && return 0
   fi
 
@@ -18,19 +19,19 @@ klipper_setup_dialog(){
   check_klipper_cfg_path
 
   ### ask for amount of instances to create
-  while true; do
+  INSTANCE_COUNT=""
+  while [[ ! ($INSTANCE_COUNT =~ ^[1-9]+$) ]]; do
+    echo
+    read -p "${cyan}###### Number of Klipper instances to set up:${default} " INSTANCE_COUNT
+    if [[ ! ($INSTANCE_COUNT =~ ^[1-9]+$) ]]; then
+      warn_msg "Invalid Input!" && echo
+    else
       echo
-      read -p "${cyan}###### How many Klipper instances do you want to set up?:${default} " INSTANCE_COUNT
-      echo
-      if [ $INSTANCE_COUNT == 1 ]; then
-        read -p "${cyan}###### Create $INSTANCE_COUNT single instance? (Y/n):${default} " yn
-      else
-        read -p "${cyan}###### Create $INSTANCE_COUNT instances? (Y/n):${default} " yn
-      fi
+      read -p "${cyan}###### Install $INSTANCE_COUNT instance(s)? (Y/n):${default} " yn
       case "$yn" in
         Y|y|Yes|yes|"")
           echo -e "###### > Yes"
-          status_msg "Creating $INSTANCE_COUNT Klipper instances ..."
+          status_msg "Installing $INSTANCE_COUNT Klipper instance(s) ..."
           klipper_setup
           break;;
         N|n|No|no)
@@ -41,24 +42,26 @@ klipper_setup_dialog(){
         *)
           print_unkown_cmd
           print_msg && clear_msg;;
-    esac
+      esac
+    fi
   done
 }
 
 install_klipper_packages(){
-  ### Packages for python cffi
-  PKGLIST="python-virtualenv virtualenv python-dev libffi-dev build-essential"
-  ### kconfig requirements
-  PKGLIST="${PKGLIST} libncurses-dev"
-  ### hub-ctrl
-  PKGLIST="${PKGLIST} libusb-dev"
-  ### AVR chip installation and building
-  PKGLIST="${PKGLIST} avrdude gcc-avr binutils-avr avr-libc"
-  ### ARM chip installation and building
-  PKGLIST="${PKGLIST} stm32flash libnewlib-arm-none-eabi"
-  PKGLIST="${PKGLIST} gcc-arm-none-eabi binutils-arm-none-eabi libusb-1.0"
-  ### dbus requirement for DietPi
-  PKGLIST="${PKGLIST} dbus"
+  ### read PKGLIST from official install script
+  status_msg "Reading dependencies..."
+  install_script="${HOME}/klipper/scripts/install-octopi.sh"
+  PKGLIST=$(grep "PKGLIST=" $install_script | sed 's/PKGLIST//g; s/[$={}\n"]//g')
+  ### rewrite packages into new array
+  unset PKGARR
+  for PKG in $PKGLIST; do PKGARR+=($PKG); done
+  ### add dbus requirement for DietPi distro
+  if [ -e "/boot/dietpi" ]; then
+    PKGARR+=("dbus")
+  fi
+
+  ### display dependencies to user
+  echo "${cyan}${PKGARR[@]}${default}"
 
   ### Update system package info
   status_msg "Running apt-get update..."
@@ -66,7 +69,7 @@ install_klipper_packages(){
 
   ### Install desired packages
   status_msg "Installing packages..."
-  sudo apt-get install --yes ${PKGLIST}
+  sudo apt-get install --yes ${PKGARR[@]}
 }
 
 create_klipper_virtualenv(){
@@ -90,8 +93,9 @@ klipper_setup(){
   install_klipper_packages
   create_klipper_virtualenv
 
-  ### step 3: create shared gcode_files folder
+  ### step 3: create shared gcode_files and logs folder
   [ ! -d ${HOME}/gcode_files ] && mkdir -p ${HOME}/gcode_files
+  [ ! -d ${HOME}/klipper_logs ] && mkdir -p ${HOME}/klipper_logs
 
   ### step 4: create klipper instances
   create_klipper_service
@@ -111,7 +115,7 @@ create_klipper_service(){
   CFG_PATH="$klipper_cfg_loc"
   KL_ENV=$KLIPPY_ENV
   KL_DIR=$KLIPPER_DIR
-  KL_LOG="/tmp/klippy.log"
+  KL_LOG="${HOME}/klipper_logs/klippy.log"
   KL_UDS="/tmp/klippy_uds"
   P_TMP="/tmp/printer"
   P_CFG="$CFG_PATH/printer.cfg"
@@ -155,7 +159,7 @@ create_klipper_service(){
       KL_SERV_TARGET="$SYSTEMDDIR/klipper-$i.service"
       P_TMP="/tmp/printer-$i"
       P_CFG="$CFG_PATH/printer.cfg"
-      KL_LOG="/tmp/klippy-$i.log"
+      KL_LOG="${HOME}/klipper_logs/klippy-$i.log"
       KL_UDS="/tmp/klippy_uds-$i"
       ### write multi instance service
       write_kl_service
@@ -366,18 +370,18 @@ flash_routine_marlin(){
 }
 
 flash_mcu(){
-  klipper_service "stop"
+  do_action_service "stop" "klipper"
   if ! make flash FLASH_DEVICE="${mcu_list[$mcu_index]}" ; then
     warn_msg "Flashing failed!"
     warn_msg "Please read the console output above!"
   else
     ok_msg "Flashing successfull!"
   fi
-  klipper_service "start"
+  do_action_service "start" "klipper"
 }
 
 flash_mcu_sd(){
-  klipper_service "stop"
+  do_action_service "stop" "klipper"
 
   ### write each supported board to the array to make it selectable
   board_list=()
@@ -442,7 +446,7 @@ flash_mcu_sd(){
     ok_msg "Flashing successfull!"
   fi
 
-  klipper_service "start"
+  do_action_service "start" "klipper"
 }
 
 flash_mcu_marlin(){
@@ -477,7 +481,7 @@ get_mcu_id(){
   bottom_border
   while true; do
     echo -e "${cyan}"
-    read -p "###### Press any key to continue ... " yn
+    read -p "###### Press ENTER to continue ... " yn
     echo -e "${default}"
     case "$yn" in
       *)
